@@ -4,8 +4,10 @@ from sklearn.impute import SimpleImputer
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder
+from sklearn.preprocessing import OrdinalEncoder
 from sklearn.model_selection import cross_val_score
-from sklearn.metrics import mean_absolute_error, mean_squared_log_error
+from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import FunctionTransformer
 
 
 numerical_features = [
@@ -23,51 +25,121 @@ unordered_categorical_features = [
     "Heating", "CentralAir", "Electrical", "GarageType", "MiscFeature", "SaleType", "SaleCondition"
 ]
 
-ordered_features = [
-    "LotShape", "Utilities", "LandSlope", "OverallQual", "OverallCond", "ExterQual", "ExterCond",
-    "BsmtQual", "BsmtCond", "BsmtExposure", "BsmtFinType1", "BsmtFinType2", "KitchenQual",
-    "Functional", "FireplaceQu", "GarageFinish", "GarageQual", "GarageCond", "PavedDrive",
-    "PoolQC", "Fence"
-]
+ordered_cols_num = ['OverallQual', 'OverallCond', 'GarageQual', 'ExterQual',
+    'ExterCond', 'BsmtQual', 'BsmtCond', 'HeatingQC', 'KitchenQual',
+            'FireplaceQu', 'GarageCond', 'PoolQC']
 
+ordered_cols_str = ['Fence', 'PavedDrive', 'Utilities', 'CentralAir',
+'Electrical', 'LotShape', 'LandSlope', 'BsmtExposure', 'BsmtFinType1',
+                'BsmtFinType2', 'Functional', 'GarageFinish']
 
+five_levels = list(range(1, 6))
+ten_levels = list(range(1, 11))
+
+ordered_levels_num = {
+    "OverallQual": ten_levels,
+    "OverallCond": ten_levels,
+    'GarageQual': five_levels,
+    'ExterQual': five_levels,
+    'ExterCond': five_levels,
+    'BsmtQual': five_levels,
+    'BsmtCond': five_levels,
+    'HeatingQC': five_levels,
+    'KitchenQual': five_levels,
+    'FireplaceQu': five_levels,
+    'GarageCond': five_levels,
+    'PoolQC': five_levels,
+}
+ordered_levels_str = {
+    'Fence': ['MnWd', 'GdWo', "MnPrv", 'GdPrv'],
+    'PavedDrive': ['N', 'P', 'Y'],
+    "Utilities": ["NoSeWa", "NoSewr", "AllPub"],
+    "CentralAir": ["N", "Y"],
+    "Electrical": ["Mix", "FuseP", "FuseF", "FuseA", "SBrkr"],
+    "LotShape": ["Reg", "IR1", "IR2", "IR3"],
+    "LandSlope": ["Sev", "Mod", "Gtl"],
+    "BsmtExposure": ["No", "Mn", "Av", "Gd"],
+    "BsmtFinType1": ["Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ"],
+    "BsmtFinType2": ["Unf", "LwQ", "Rec", "BLQ", "ALQ", "GLQ"],
+    "Functional": ["Sal", "Sev", "Maj1", "Maj2", "Mod", "Min2", "Min1", "Typ"],
+    "GarageFinish": ["Unf", "RFn", "Fin"]
+}
 
 # preprocessing data
-def initial_preprocess(df):
-    numerical_cols = [col for col in df.columns if df[col].dtype in ['int64'
-        , 'float64']]
+def preprocess(df: pd.DataFrame, ordered_levels: dict) -> ColumnTransformer:
+    df = df.copy()
+    all_cols = df.columns
 
-    categorical_cols = [col for col in df.columns if df[col].dtype == 'object']
+    ordered_cols = [c for c in ordered_levels.keys() if c in all_cols]
+    for col in ordered_cols:
+        df[col] = df[col].astype(str)
+    num_cols = list(df.select_dtypes(include=["number"]).columns)
 
-    numerical_transformer = SimpleImputer(strategy='constant', fill_value=0)
+    # unordered = object columns minus ordered ones
+    unordered_cols = [
+        c for c in df.select_dtypes(include=["object"]).columns
+        if c not in ordered_cols
+    ]
 
-    categorical_transformer = Pipeline(steps=[
-        ('imputer', SimpleImputer(strategy='constant', fill_value='None')),
-        ('onehot', OneHotEncoder(handle_unknown='ignore'))
+    # Build categories list for OrdinalEncoder in the exact column order
+    ordered_categories_num = [ordered_levels_num[c] for c in ordered_cols_num]
+    ordered_categories_str = [ordered_levels_str[c] for c in ordered_cols_str]
+
+    ordered_pipe_num = Pipeline(steps=[
+        # fill NaNs with a sentinel that isn’t in categories; unknowns map to -1
+        ("impute", SimpleImputer(strategy="constant", fill_value=-1)),
+        ("encode", OrdinalEncoder(
+            categories=ordered_categories_num,
+            handle_unknown="use_encoded_value",
+            unknown_value=-1,
+            dtype=np.int64
+        ))
     ])
+
+    ordered_pipe_str = Pipeline(steps=[
+
+        ("to_str", FunctionTransformer(lambda X: X.astype(str))),
+        ("impute", SimpleImputer(strategy="constant", fill_value="None")),
+        ("encode", OrdinalEncoder(
+            categories=[ordered_levels_str[c] for c in ordered_cols_str],
+            handle_unknown="use_encoded_value",
+            unknown_value=-1
+        ))
+    ])
+
+
+    unordered_pipe = Pipeline(steps=[
+        ("impute", SimpleImputer(strategy="constant", fill_value="None")),
+        # dense output so linear models work without surprises
+        ("onehot", OneHotEncoder(handle_unknown="ignore", sparse_output=False))
+    ])
+
+    numeric_pipe = Pipeline(steps=[
+    ("imputer", SimpleImputer(strategy="constant", fill_value=0)),
+    ("scaler", StandardScaler())
+])
 
     preprocessor = ColumnTransformer(
         transformers=[
-            ('num', numerical_transformer, numerical_cols),
-            ('cat', categorical_transformer, categorical_cols)
-        ])
+            ("num", numeric_pipe, num_cols),
+            ("ord_num", ordered_pipe_num, ordered_cols_num),
+            ("ord_str", ordered_pipe_str, ordered_cols_str),
+            ("cat", unordered_pipe, unordered_cols),
+        ],
+        remainder="drop")
 
     return preprocessor
 
 
 
-def evaluate_model(preprocessor, X, y, model):
-    pipe = Pipeline([
-        ('preprocessor', preprocessor),
-        ('model', model)
-    ])
+def evaluate_model(X, y, model):
 
     # Log-transform target for stability in RMSLE
     y_log = np.log1p(y)
 
     # Cross-validation RMSLE (RMSE on log target)
     cv_rmsle_scores = cross_val_score(
-        pipe, X, y_log,
+        model, X, y_log,
         cv=5,
         scoring="neg_root_mean_squared_error"
     )
@@ -75,7 +147,7 @@ def evaluate_model(preprocessor, X, y, model):
 
     # Cross-validation MAE
     cv_mae_scores = cross_val_score(
-        pipe, X, y,
+        model, X, y,
         cv=5,
         scoring="neg_mean_absolute_error"
     )
@@ -87,39 +159,3 @@ def evaluate_model(preprocessor, X, y, model):
     }
 
     return results
-
-
-
-def impute(df):
-
-    numerical_cols = [col for col in df.columns if df[col].dtype in ['int64',
-                                                                     'float64']]
-
-    categorical_cols = [col for col in df.columns if df[col].dtype == 'object']
-
-    # Numerical features - fill missing with 0
-    numerical_imputer = SimpleImputer(strategy='constant', fill_value=0)
-    df[numerical_cols] = numerical_imputer.fit_transform(df[numerical_cols])
-
-    # categorical features - fill missing with "None"
-    categorical_imputer = SimpleImputer(strategy='constant', fill_value='None')
-    df[categorical_cols] = categorical_imputer.fit_transform(df[categorical_cols])
-    return df
-
-
-def encode_categorical(df, ordered_levels):
-
-    # unordered categorical:
-    for name in unordered_categorical_features:
-        df[name] = df[name].astype('category')
-        # add a 'None' category:
-        if 'None' not in df[name].cat.categories:
-            df[name] = df[name].cat.add_categories('None')
-        df[name] = df[name].fillna('None')  # replace missing with 'None'
-
-    # ordered
-    for col, categories in ordered_levels.items():
-        mapping = {label: i for i, label in enumerate(categories)}
-        mapping[np.nan] = -1
-        df[col] = df[col].map(lambda x: mapping.get(x, -1)).astype("int64")
-    return df
