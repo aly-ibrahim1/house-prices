@@ -5,11 +5,18 @@ from src.target_encoding import CrossFoldEncoder
 from xgboost import XGBRegressor
 from sklearn.model_selection import cross_val_score
 import numpy as np
+from sklearn.feature_selection import mutual_info_regression
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+
 
 def load_data():
     train = pd.read_csv("../data/raw/train.csv", index_col='Id')
     test = pd.read_csv("../data/raw/test.csv", index_col='Id')
     return train, test
+
 
 numerical_features = [
     "LotFrontage", "LotArea", "YearBuilt", "YearRemodAdd", "MasVnrArea", "BsmtFinSF1", "BsmtFinSF2",
@@ -35,6 +42,15 @@ ordered_features = [
 
 binary_cols = ["CentralAir"]
 
+cluster_features = [
+    "TotalSF",
+    "TotalBaths",
+    "BathsPerRoom",
+    "LotArea",
+    "OverallQual",
+]
+
+pca_features = ["GrLivArea", "TotalBsmtSF", "1stFlrSF", "2ndFlrSF", "GarageArea", "LotArea", "MasVnrArea"]
 
 def preprocess():
     df_train, df_test = load_data()
@@ -69,6 +85,7 @@ def clean(df):
             out[col] = pd.to_numeric(out[col], errors="coerce")
 
     return out
+
 
 def encode(df):
     out = df.copy()
@@ -242,6 +259,7 @@ def encode(df):
 
     return out
 
+
 def impute(df):
     out = df.copy()
 
@@ -268,7 +286,7 @@ def impute(df):
     return out
 
 
-def score_dataset(X, y, model=None):
+def evaluate_model(X, y, model=None):
     if model is None:
         model = XGBRegressor(tree_method="hist", random_state=42)
 
@@ -291,4 +309,162 @@ def score_dataset(X, y, model=None):
     )
     mae = -mae_scores.mean()
 
+    print(f"RMSLE: {rmse:.5f}")
+    print(f"MAE: {mae:.5f}")
+
     return rmse, mae
+
+
+def get_mi(X, y):
+    X = X.copy()
+    # mark discrete features
+    discrete = [X[c].nunique() <= 12 for c in X.columns]
+    mi = mutual_info_regression(X, y, discrete_features=discrete, random_state=0)
+    return pd.Series(mi, index=X.columns)
+
+
+def plot_mi(scores):
+    scores = scores.sort_values(ascending=True)
+    width = np.arange(len(scores))
+    ticks = list(scores.index)
+    plt.barh(width, scores)
+    plt.yticks(width, ticks)
+    plt.title("Mutual Information Scores")
+
+
+def drop_zeromi(df, mi_scores):
+    return df.loc[:, mi_scores > 0.0]
+
+
+def interaction_features(df):
+    # TotalSF = above-ground + basement
+    df["TotalSF"] = df["GrLivArea"] + df["TotalBsmtSF"]
+
+    # TotalBaths (full + half*0.5, incl. basement)
+    df["TotalBaths"] = (
+            df["FullBath"] + 0.5 * df["HalfBath"]
+            + df["BsmtFullBath"] + 0.5 * df["BsmtHalfBath"]
+    )
+
+    # porchSF
+    df["PorchSF"] = (
+            df["OpenPorchSF"] + df["EnclosedPorch"]
+            + df["3SsnPorch"] + df["ScreenPorch"]
+    )
+
+
+    # ratio
+    rooms = np.maximum(df["TotRmsAbvGrd"].astype(float), 1.0)
+    df["BathsPerRoom"] = df["TotalBaths"] / rooms
+
+    df["LivLotRatio"] = df["GrLivArea"] / df["LotArea"]
+    df["Spaciousness"] = (df["1stFlrSF"] + df["2ndFlrSF"]) / df["TotRmsAbvGrd"]
+
+    # counts
+    df["PorchTypes"] = df[[
+        "WoodDeckSF",
+        "OpenPorchSF",
+        "EnclosedPorch",
+        "3SsnPorch",
+        "ScreenPorch",
+    ]].gt(0.0).sum(axis=1)
+
+    return df
+
+
+
+def kmeans_cluster(df, features, k=5):
+
+    col = "Clusters"
+    out = df.copy()
+
+    # scale (fit on train only)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(out[features])
+
+    # kmeans (fit on train only)
+    km = KMeans(n_clusters=k, random_state=42, n_init=10)
+    km.fit(X_scaled)
+
+    # add labels
+    out[col] = km.predict(X_scaled).astype("int16")
+
+    return out
+
+
+def pca_transform(df, features, n_components=5, prefix="PC"):
+
+    out = df.copy()
+    X = out[features].astype(float)
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    pca = PCA(n_components=n_components, random_state=42)
+    Z = pca.fit_transform(X_scaled)
+
+    component_names = [f"PC{i + 1}" for i in range(Z.shape[1])]
+
+    for i in range(Z.shape[1]):
+        out[f"{prefix}{i + 1}"] = Z[:, i].astype("float32")
+
+    loadings = pd.DataFrame(
+        pca.components_.T,
+        columns=component_names,
+        index=X.columns,
+    )
+
+    return out, loadings
+
+def pca_interactions(df):
+    out = df.copy()
+
+    # 1. size × verticality (big & tall vs big & wide)
+    out["PC1_x_PC2"] = out["PC1"] * out["PC2"]
+
+    # 2. size × exterior quality/materials (masonry/lot vs interior)
+    out["PC1_x_PC4"] = out["PC1"] * out["PC4"]
+
+    # 3. Size-to-Density ratio (house size vs lot/build density)
+    out["PC1_div_PC3"] = out["PC1"] / (out["PC3"].replace(0, np.nan) + 1e-06)
+
+    return out
+
+
+
+def feature_engineering(df, df_test=None):
+    X = df.copy()
+    y = X.pop("SalePrice")
+
+    if df_test is not None:
+        X_test = df_test.copy()
+        X_test.pop("SalePrice")
+        X = pd.concat([X, X_test])
+
+    # 1. interaction features
+    X = interaction_features(X)
+
+    # 2. kmeans features
+    X = kmeans_cluster(X, cluster_features, k=5)
+
+    # 3. pca features
+    X, _ = pca_transform(X, pca_features)
+    X = pca_interactions(X)
+
+    # reform splits
+    if df_test is not None:
+        X_test = X.loc[df_test.index, :]
+        X.drop(df_test.index, inplace=True)
+
+    # 4. drop zero MI features
+    mi_scores = get_mi(X, y)
+    X = drop_zeromi(X, mi_scores)
+
+    if df_test is not None:
+        dropped_cols = set(X.columns) - set(X_test.columns)
+        X_test.drop(columns=dropped_cols, inplace=True)
+
+    if df_test is not None:
+        return X, X_test
+    else:
+        return X
