@@ -1,3 +1,5 @@
+# Adapted from Kaggle House Prices starter notebook:
+# https://www.kaggle.com/competitions/house-prices-advanced-regression-techniques
 
 from sklearn.model_selection import KFold
 import pandas as pd
