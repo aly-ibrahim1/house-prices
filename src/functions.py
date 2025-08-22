@@ -461,7 +461,7 @@ def feature_engineering(df, df_test=None):
     X = drop_zeromi(X, mi_scores)
 
     if df_test is not None:
-        dropped_cols = set(X.columns) - set(X_test.columns)
+        dropped_cols = set(X_test.columns) - set(X.columns)
         X_test.drop(columns=dropped_cols, inplace=True)
 
     if df_test is not None:
