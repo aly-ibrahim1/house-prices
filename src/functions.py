@@ -5,11 +5,18 @@ from src.target_encoding import CrossFoldEncoder
 from xgboost import XGBRegressor
 from sklearn.model_selection import cross_val_score
 import numpy as np
+from sklearn.feature_selection import mutual_info_regression
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.cluster import KMeans
+
+
 
 def load_data():
     train = pd.read_csv("../data/raw/train.csv", index_col='Id')
     test = pd.read_csv("../data/raw/test.csv", index_col='Id')
     return train, test
+
 
 numerical_features = [
     "LotFrontage", "LotArea", "YearBuilt", "YearRemodAdd", "MasVnrArea", "BsmtFinSF1", "BsmtFinSF2",
@@ -69,6 +76,7 @@ def clean(df):
             out[col] = pd.to_numeric(out[col], errors="coerce")
 
     return out
+
 
 def encode(df):
     out = df.copy()
@@ -242,6 +250,7 @@ def encode(df):
 
     return out
 
+
 def impute(df):
     out = df.copy()
 
@@ -268,7 +277,7 @@ def impute(df):
     return out
 
 
-def score_dataset(X, y, model=None):
+def evaluate_model(X, y, model=None):
     if model is None:
         model = XGBRegressor(tree_method="hist", random_state=42)
 
@@ -291,4 +300,84 @@ def score_dataset(X, y, model=None):
     )
     mae = -mae_scores.mean()
 
+    print(f"RMSLE: {rmse:.5f}")
+    print(f"MAE: {mae:.5f}")
+
     return rmse, mae
+
+
+def get_mi(X, y):
+    X = X.copy()
+    # mark discrete features
+    discrete = [X[c].nunique() <= 12 for c in X.columns]
+    mi = mutual_info_regression(X, y, discrete_features=discrete, random_state=0)
+    return pd.Series(mi, index=X.columns)
+
+
+def plot_mi(scores):
+    scores = scores.sort_values(ascending=True)
+    width = np.arange(len(scores))
+    ticks = list(scores.index)
+    plt.barh(width, scores)
+    plt.yticks(width, ticks)
+    plt.title("Mutual Information Scores")
+
+
+def drop_zeromi(df, mi_scores):
+    return df.loc[:, mi_scores > 0.0]
+
+
+def interaction_features(df):
+    # TotalSF = above-ground + basement
+    df["TotalSF"] = df["GrLivArea"] + df["TotalBsmtSF"]
+
+    # TotalBaths (full + half*0.5, incl. basement)
+    df["TotalBaths"] = (
+            df["FullBath"] + 0.5 * df["HalfBath"]
+            + df["BsmtFullBath"] + 0.5 * df["BsmtHalfBath"]
+    )
+
+    # porchSF
+    df["PorchSF"] = (
+            df["OpenPorchSF"] + df["EnclosedPorch"]
+            + df["3SsnPorch"] + df["ScreenPorch"]
+    )
+
+
+    # ratio
+    rooms = np.maximum(df["TotRmsAbvGrd"].astype(float), 1.0)
+    df["BathsPerRoom"] = df["TotalBaths"] / rooms
+
+    df["LivLotRatio"] = df["GrLivArea"] / df["LotArea"]
+    df["Spaciousness"] = (df["1stFlrSF"] + df["2ndFlrSF"]) / df["TotRmsAbvGrd"]
+
+    # counts
+    df["PorchTypes"] = df[[
+        "WoodDeckSF",
+        "OpenPorchSF",
+        "EnclosedPorch",
+        "3SsnPorch",
+        "ScreenPorch",
+    ]].gt(0.0).sum(axis=1)
+
+    return df
+
+
+
+def kmeans_cluster(df, features, k=5):
+
+    col = "Clusters"
+    out = df.copy()
+
+    # scale (fit on train only)
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(out[features])
+
+    # kmeans (fit on train only)
+    km = KMeans(n_clusters=k, random_state=42, n_init=10)
+    km.fit(X_scaled)
+
+    # add labels
+    out[col] = km.predict(X_scaled).astype("int16")
+
+    return out
