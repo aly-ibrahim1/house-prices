@@ -9,7 +9,7 @@ from sklearn.feature_selection import mutual_info_regression
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
-
+from sklearn.decomposition import PCA
 
 
 def load_data():
@@ -42,6 +42,15 @@ ordered_features = [
 
 binary_cols = ["CentralAir"]
 
+cluster_features = [
+    "TotalSF",
+    "TotalBaths",
+    "BathsPerRoom",
+    "LotArea",
+    "OverallQual",
+]
+
+pca_features = ["GrLivArea", "TotalBsmtSF", "1stFlrSF", "2ndFlrSF", "GarageArea", "LotArea", "MasVnrArea"]
 
 def preprocess():
     df_train, df_test = load_data()
@@ -381,3 +390,81 @@ def kmeans_cluster(df, features, k=5):
     out[col] = km.predict(X_scaled).astype("int16")
 
     return out
+
+
+def pca_transform(df, features, n_components=5, prefix="PC"):
+
+    out = df.copy()
+    X = out[features].astype(float)
+
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    pca = PCA(n_components=n_components, random_state=42)
+    Z = pca.fit_transform(X_scaled)
+
+    component_names = [f"PC{i + 1}" for i in range(Z.shape[1])]
+
+    for i in range(Z.shape[1]):
+        out[f"{prefix}{i + 1}"] = Z[:, i].astype("float32")
+
+    loadings = pd.DataFrame(
+        pca.components_.T,
+        columns=component_names,
+        index=X.columns,
+    )
+
+    return out, loadings
+
+def pca_interactions(df):
+    out = df.copy()
+
+    # 1. size × verticality (big & tall vs big & wide)
+    out["PC1_x_PC2"] = out["PC1"] * out["PC2"]
+
+    # 2. size × exterior quality/materials (masonry/lot vs interior)
+    out["PC1_x_PC4"] = out["PC1"] * out["PC4"]
+
+    # 3. Size-to-Density ratio (house size vs lot/build density)
+    out["PC1_div_PC3"] = out["PC1"] / (out["PC3"].replace(0, np.nan) + 1e-06)
+
+    return out
+
+
+
+def feature_engineering(df, df_test=None):
+    X = df.copy()
+    y = X.pop("SalePrice")
+
+    if df_test is not None:
+        X_test = df_test.copy()
+        X_test.pop("SalePrice")
+        X = pd.concat([X, X_test])
+
+    # 1. interaction features
+    X = interaction_features(X)
+
+    # 2. kmeans features
+    X = kmeans_cluster(X, cluster_features, k=5)
+
+    # 3. pca features
+    X, _ = pca_transform(X, pca_features)
+    X = pca_interactions(X)
+
+    # reform splits
+    if df_test is not None:
+        X_test = X.loc[df_test.index, :]
+        X.drop(df_test.index, inplace=True)
+
+    # 4. drop zero MI features
+    mi_scores = get_mi(X, y)
+    X = drop_zeromi(X, mi_scores)
+
+    if df_test is not None:
+        dropped_cols = set(X.columns) - set(X_test.columns)
+        X_test.drop(columns=dropped_cols, inplace=True)
+
+    if df_test is not None:
+        return X, X_test
+    else:
+        return X
