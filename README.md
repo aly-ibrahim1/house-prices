@@ -45,7 +45,7 @@ The project was designed to mimic a production-ready workflow, broken into stage
 | Stage                    | RMSLE   | MAE ($)   |
 |---------------------------|---------|-----------|
 | Baseline after preprocessing (XGB default)    | 0.136   | 17,176    |
-| Final Tuned XGB           | **0.116** | **14,800** |
+| Final Tuned XGB           | **0.1166** | **14,800** |
 | Kaggle Submission         | **0.1299** | — (hidden labels) |
 
 Demonstrated strong generalization from CV to Kaggle test data.
