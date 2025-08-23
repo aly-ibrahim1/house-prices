@@ -53,6 +53,14 @@ cluster_features = [
 pca_features = ["GrLivArea", "TotalBsmtSF", "1stFlrSF", "2ndFlrSF", "GarageArea", "LotArea", "MasVnrArea"]
 
 def preprocess():
+
+    """Load raw Kaggle data and run cleaning, encoding, and imputation.
+
+    Returns:
+        df_train: Training dataframe with target column `SalePrice`.
+        df_test: Test dataframe without `SalePrice`.
+    """
+
     df_train, df_test = load_data()
 
     # Merge so we can process them together
@@ -72,6 +80,17 @@ def preprocess():
 
 def clean(df):
 
+    """Light schema fixes (types & numeric coercions).
+        - Casts MSSubClass to categorical.
+        - Coerces numeric-looking object cols to float.
+
+        Args:
+            df: Input dataframe (train+test or either).
+
+        Returns:
+            Copy with corrected dtypes.
+        """
+
     out = df.copy()
 
     # 1. make categorical
@@ -88,6 +107,20 @@ def clean(df):
 
 
 def encode(df):
+
+    """Encode categoricals (ordinal maps, one-hot, target enc) into numeric features.
+
+        Notes:
+            - Keeps binary flags as {0,1}.
+            - Uses cross-fold target encoding for high-cardinality columns to avoid leakage.
+
+        Args:
+            df: Input dataframe after `clean`.
+
+        Returns:
+            Numeric-only dataframe suitable for modeling.
+        """
+
     out = df.copy()
 
     # 1. identify target and row groups
@@ -261,6 +294,18 @@ def encode(df):
 
 
 def impute(df):
+
+    """Simple, explicit imputation.
+
+        - Numeric: fillna(0) (interprets many NAs as 'not present').
+        - Categorical: fillna('Unknown').
+
+        Args:
+            df: Encoded dataframe.
+
+        Returns:
+            Imputed dataframe.
+        """
     out = df.copy()
 
     # 1. numeric imputation: split by semantics
@@ -287,6 +332,18 @@ def impute(df):
 
 
 def evaluate_model(X, y, model=None):
+
+    """Cross-validated RMSLE and MAE for a model.
+
+        Args:
+            X: Training features.
+            y: Target (SalePrice).
+            model: Estimator to evaluate.
+
+        Returns:
+            (rmsle: float, mae: float)
+        """
+
     if model is None:
         model = XGBRegressor(tree_method="hist", random_state=42)
 
@@ -316,6 +373,17 @@ def evaluate_model(X, y, model=None):
 
 
 def get_mi(X, y):
+
+    """Compute mutual information of each feature with target.
+
+        Args:
+            X: Numeric feature matrix (train rows only).
+            y: Target aligned with X.
+
+        Returns:
+            Series indexed by column name with MI scores.
+        """
+
     X = X.copy()
     # mark discrete features
     discrete = [X[c].nunique() <= 12 for c in X.columns]
@@ -337,6 +405,20 @@ def drop_zeromi(df, mi_scores):
 
 
 def interaction_features(df):
+
+    """Create compact interaction features.
+
+        Adds (examples):
+            - TotalSF, TotalBaths, BathsPerRoom, PorchSF,
+              Spaciousness, LivLotRatio, etc.
+
+        Args:
+            df: Input dataframe (train or test).
+
+        Returns:
+            Copy with new interaction columns appended.
+        """
+
     # TotalSF = above-ground + basement
     df["TotalSF"] = df["GrLivArea"] + df["TotalBsmtSF"]
 
@@ -375,6 +457,17 @@ def interaction_features(df):
 
 def kmeans_cluster(df, features, k=5):
 
+    """Standardize features, fit KMeans on df, and append a single cluster label.
+
+    Args:
+        df: Dataframe containing `features` (already engineered).
+        features: Columns to use for clustering (continuous / scaled).
+        k: Number of clusters.
+
+    Returns:
+        Copy of df with one integer cluster column appended.
+    """
+
     col = "Clusters"
     out = df.copy()
 
@@ -394,6 +487,17 @@ def kmeans_cluster(df, features, k=5):
 
 def pca_transform(df, features, n_components=5, prefix="PC"):
 
+    """Apply StandardScaler + PCA
+
+        Args:
+            df: dataframe.
+            features: PCA features.
+            n_components: Number of pca components.
+            prefix: Column prefix for PCs.
+
+        Returns:
+            Copy with PC columns appended.
+        """
     out = df.copy()
     X = out[features].astype(float)
 
@@ -417,6 +521,16 @@ def pca_transform(df, features, n_components=5, prefix="PC"):
     return out, loadings
 
 def pca_interactions(df):
+
+    """Add compact, interpretable interactions among PCs.
+
+        Args:
+            df: Dataframe already containing PC columns.
+
+        Returns:
+            Copy with new PC interaction columns.
+        """
+
     out = df.copy()
 
     # 1. size × verticality (big & tall vs big & wide)
@@ -433,6 +547,18 @@ def pca_interactions(df):
 
 
 def feature_engineering(df, df_test=None):
+    
+    """Pipeline that combines all feature engineering steps into one function.
+
+        Args:
+            df: Preprocessed training dataframe with target column `SalePrice`.
+            df_test: Optional preprocessed test dataframe with `SalePrice` column.
+
+        Returns:
+            If df_test is provided, returns (X_train, X_test) with engineered features.
+            Otherwise, returns X_train only.
+    """
+
     X = df.copy()
     y = X.pop("SalePrice")
 
