@@ -66,7 +66,7 @@ Demonstrated strong generalization from CV to Kaggle test data.
 	•	hyperparam-tuning → Optuna experiments and results.
 
 
-### Skills Demonstrated
+## Skills Demonstrated
 	•	Data preprocessing: handling missing values, categorical encoding, outlier removal.
 	•	Feature engineering: domain-inspired interactions, clustering, PCA.
 	•	Modeling: gradient boosting (XGBoost), log-target regression, RMSLE optimization.
@@ -74,7 +74,7 @@ Demonstrated strong generalization from CV to Kaggle test data.
 	•	Software practices: modular pipeline design, Git branching, experiment tracking.
 
 
-### Acknowledgements
+## Acknowledgements
 	•	Kaggle for providing the House Prices dataset and starter notebook.
 	•	The Ames Housing dataset originally compiled by Dean De Cock (2009).
 
