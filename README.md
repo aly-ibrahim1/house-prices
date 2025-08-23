@@ -1,4 +1,4 @@
-# House Prices Prediction (Kaggle Competition)
+# House Prices Prediction
 
 ### Overview
 This project tackles the classic Kaggle House Prices: Advanced Regression Techniques competition.
