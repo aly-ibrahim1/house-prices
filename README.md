@@ -13,35 +13,35 @@ The project was designed to mimic a production-ready workflow, broken into stage
 
 1.	Exploratory Data Analysis (EDA)
 
-	  •	Identified outliers, visualized feature distributions, examined missingness patterns.
-	  •	Created a missingness report to guide imputation strategy.
+	  -	Identified outliers, visualized feature distributions, examined missingness patterns.
+	  -	Created a missingness report to guide imputation strategy.
    
 3.	Preprocessing
 
-  •	Type casting (categorical, ordinal, numeric).
-  •	Consistent handling of missing values using semantic rules (e.g., “NA = no garage”).
-  •	Encoding categorical variables (ordinal mappings, one-hot, target encoding).
-  •	Baseline model evaluation with Ridge and XGBoost.
+  -	Type casting (categorical, ordinal, numeric).
+  -	Consistent handling of missing values using semantic rules (e.g., “NA = no garage”).
+  -	Encoding categorical variables (ordinal mappings, one-hot, target encoding).
+  -	Baseline model evaluation with Ridge and XGBoost.
    
 5.	Feature Engineering
 
-  •	Interaction features (e.g., TotalSF, TotalBaths, BathsPerRoom).
-  •	KMeans clustering to group houses by size/layout → added cluster labels as features.
-  •	PCA on structural features → extracted principal components + interaction terms.
-  •	Mutual Information filtering to drop uninformative features.
+  -	Interaction features (e.g., TotalSF, TotalBaths, BathsPerRoom).
+  -	KMeans clustering to group houses by size/layout → added cluster labels as features.
+  -	PCA on structural features → extracted principal components + interaction terms.
+  -	Mutual Information filtering to drop uninformative features.
    
 7.	Hyperparameter Tuning
 
-  •	Used Optuna to optimize XGBoost hyperparameters with 5-fold cross-validation.
-  •	Tuned tree depth, learning rate, number of estimators, regularization, and sampling.
+  -	Used Optuna to optimize XGBoost hyperparameters with 5-fold cross-validation.
+  -	Tuned tree depth, learning rate, number of estimators, regularization, and sampling.
    
 9.	Model Training & Evaluation
 
-  •	Trained final XGBoost regressor on log-transformed target.
-  •	Evaluated performance with RMSLE and MAE:
-  •	Cross-validated RMSLE: 0.11666
-  •	Cross-validated MAE: ~14,800 USD
-  •	Kaggle Public Leaderboard RMSLE: 0.12994
+  -	Trained final XGBoost regressor on log-transformed target.
+  -	Evaluated performance with RMSLE and MAE:
+  -	Cross-validated RMSLE: 0.11666
+  -	Cross-validated MAE: ~14,800 USD
+  -	Kaggle Public Leaderboard RMSLE: 0.12994
 
 
 
