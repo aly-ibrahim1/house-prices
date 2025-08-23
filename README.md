@@ -68,23 +68,23 @@ Demonstrated strong generalization from CV to Kaggle test data.
 
 
 ### Branches:
-	•	main → Final end-to-end pipeline.
-	•	preprocessing → Data cleaning and encoding steps.
-	•	feature-eng → Interaction, clustering, PCA experiments.
-	•	hyperparam-tuning → Optuna experiments and results.
+	•	main → Final end-to-end pipeline
+	•	preprocessing → Data cleaning and encoding steps
+	•	feature-eng → Interaction, clustering, PCA experiments
+	•	hyperparam-tuning → Optuna experiments and results
 
 
 ## Skills Demonstrated
-	•	Data preprocessing: handling missing values, categorical encoding, outlier removal.
-	•	Feature engineering: domain-inspired interactions, clustering, PCA.
-	•	Modeling: gradient boosting (XGBoost), log-target regression, RMSLE optimization.
-	•	Hyperparameter optimization: Optuna search space design & tuning.
-	•	Software practices: modular pipeline design, Git branching, experiment tracking.
+	•	Data preprocessing: handling missing values, categorical encoding, outlier removal
+	•	Feature engineering: domain-inspired interactions, clustering, PCA
+	•	Modeling: gradient boosting (XGBoost), log-target regression, RMSLE optimization
+	•	Hyperparameter optimization: Optuna search space design & tuning
+	•	Software practices: modular pipeline design, Git branching, experiment tracking
 
 
 ## Acknowledgements
-	•	Kaggle for providing the House Prices dataset and starter notebook.
-	•	The Ames Housing dataset.
+	•	Kaggle for providing the House Prices dataset and starter notebook
+	•	The Ames Housing dataset
 
 
 **Next Steps:** Experiment with ensembling (XGBoost + LightGBM + Ridge) and SHAP analysis for feature importance.
