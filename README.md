@@ -84,7 +84,7 @@ Demonstrated strong generalization from CV to Kaggle test data.
 
 ## Acknowledgements
 	•	Kaggle for providing the House Prices dataset and starter notebook.
-	•	The Ames Housing dataset originally compiled by Dean De Cock (2009).
+	•	The Ames Housing dataset.
 
 
 **Next Steps:** Experiment with ensembling (XGBoost + LightGBM + Ridge) and SHAP analysis for feature importance.
