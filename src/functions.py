@@ -345,7 +345,7 @@ def evaluate_model(X, y, model=None):
         """
 
     if model is None:
-        model = XGBRegressor(tree_method="hist", random_state=42)
+        model = XGBRegressor(tree_method="hist", random_state=42, enable_categorical=True)
 
     # Log-transform target for RMSLE
     log_y = np.log(y)
@@ -547,7 +547,7 @@ def pca_interactions(df):
 
 
 def feature_engineering(df, df_test=None):
-    
+
     """Pipeline that combines all feature engineering steps into one function.
 
         Args:
