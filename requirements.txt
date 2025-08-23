@@ -1,8 +1,23 @@
+# Core
 pandas
 numpy
 scikit-learn
+
+# Modeling
 xgboost
+category-encoders
+
+# Optimization
+optuna
+
+# Visualization
 matplotlib
-shap
-joblib
-pillow>=10.0.1 # not directly required, pinned by Snyk to avoid a vulnerability
+seaborn
+
+# Data
+The raw datasets (`train.csv`, `test.csv`) are from the 
+[Kaggle House Prices competition](https://www.kaggle.com/competitions/house-prices-advanced-regression-techniques).
+
+To reproduce results:
+1. Download the data from Kaggle.
+2. Place `train.csv` and `test.csv` into this `/data/` folder.
