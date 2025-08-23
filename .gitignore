@@ -1,5 +1,50 @@
+# --------------------
+# Python
+# --------------------
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# --------------------
+# Jupyter
+# --------------------
 *.ipynb_checkpoints/
-models/
+.ipynb_checkpoints/
+
+# --------------------
+# Environments
+# --------------------
 .env
+*.env
+.venv/
+venv/
+env/
+
+# --------------------
+# OS files
+# --------------------
 .DS_Store
+Thumbs.db
+
+# --------------------
+# Data (not tracked — Kaggle datasets too large)
+# --------------------
+/data/
+*.csv
+*.xlsx
+*.zip
+
+# --------------------
+# Models & artifacts
+# --------------------
+/models/
+*.h5
+*.pkl
+*.joblib
+
+# --------------------
+# Outputs (submissions, plots, logs)
+# --------------------
+/outputs/
+*.log
