@@ -46,8 +46,8 @@ The project was designed to mimic a production-ready workflow, broken into stage
 |---------------------------|---------|-----------|
 | Baseline before preprocessing (XGB default)    | 0.14328   | 17,498    |
 | Baseline after preprocessing (XGB default)    | 0.13629   | 17,176    |
-| Final Tuned XGB           | **0.1166** | **14,800** |
-| Kaggle Submission         | **0.1299** | — |
+| Final Tuned XGB           | **0.11666** | **14,800** |
+| Kaggle Submission         | **0.12999** | — |
 
 Demonstrated strong generalization from CV to Kaggle test data.
 
