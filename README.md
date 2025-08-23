@@ -4,7 +4,7 @@
 This project tackles the classic Kaggle House Prices: Advanced Regression Techniques competition.
 The goal is to predict home sale prices in Ames, Iowa based on 80+ explanatory features ranging from lot size and year built to neighborhood and amenities.
 
-I developed an **end-to-end machine learning pipeline** with extensive feature engineering and hyperparameter tuning, **achieving a public leaderboard RMSLE of 0.12994**
+I developed an **end-to-end machine learning pipeline** with extensive feature engineering and hyperparameter tuning, **achieving a final cross-validated RMSLE of 0.11666 and a public leaderboard RMSLE of 0.12994**
 
 
 ### Methodology
